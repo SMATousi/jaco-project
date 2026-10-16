@@ -1,0 +1,23 @@
+# ---- build artifacts (colcon / catkin) ----
+**/build/
+**/install/
+**/devel/
+**/log/
+ros1_ws/src/CMakeLists.txt
+.catkin_workspace
+
+# ---- runtime state ----
+logs/
+*.pid
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+
+# ---- upstream third-party sources (fetch with scripts/00_clone_upstream.sh) ----
+ros1_ws/src/kinova-ros/
+ros2_bridge_ws/src/ros1_bridge/
+
+# ---- misc ----
+*.swp
+.DS_Store

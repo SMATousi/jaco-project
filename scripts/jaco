@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+#
+# jaco — one-command control for the Kinova JACO2 (Gen2) via ros1_bridge.
+#
+#   jaco start      start roscore + kinova driver + ros1_bridge
+#   jaco stop       stop everything (process groups)
+#   jaco restart    stop then start
+#   jaco status     show process + topic status
+#   jaco verify     read a JointState from ROS 2 (clean Jazzy env)
+#   jaco echo <topic> [secs]   print topic messages, auto-exit (no Ctrl+C needed)
+#   jaco jog <joint 1-6> <deg/s> <secs> [--check]   safe self-stopping joint jog
+#   jaco logs [n]   follow a log (default: driver)
+#   jaco help
+#
+# Processes run detached (setsid) with per-process PID files and logs under
+# ./logs, so they survive the invoking shell. Environment handling lives in
+# scripts/runtime_env.sh (forces system Python 3.12, keeps distros separate).
+set -eo pipefail
+
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+SCRIPTS="$ROOT/scripts"
+LOG="$ROOT/logs"
+mkdir -p "$LOG"
+
+ROBOT_TYPE="${JACO_ROBOT_TYPE:-j2s6s300}"
+export ROS_MASTER_URI="${ROS_MASTER_URI:-http://localhost:11311}"
+
+# ---------------------------------------------------------------- helpers ----
+_is_running() {
+  local pidfile="$LOG/$1.pid" pid
+  [ -f "$pidfile" ] || return 1
+  pid="$(cat "$pidfile" 2>/dev/null || true)"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# _spawn <name> <env-mode> <command...>
+_spawn() {
+  local name="$1" mode="$2"; shift 2
+  if _is_running "$name"; then
+    echo "  $name already running (pid $(cat "$LOG/$name.pid"))"
+    return 0
+  fi
+  setsid bash -c "source '$SCRIPTS/runtime_env.sh' $mode >/dev/null 2>&1; export ROS_MASTER_URI='$ROS_MASTER_URI'; exec $*" \
+    >"$LOG/$name.log" 2>&1 &
+  echo $! >"$LOG/$name.pid"
+  echo "  started $name (pid $(cat "$LOG/$name.pid")) -> logs/$name.log"
+}
+
+_stop() {
+  local name="$1"
+  local pidfile="$LOG/$name.pid"
+  local pid i
+  if ! _is_running "$name"; then
+    rm -f "$pidfile"; echo "  $name: not running"; return 0
+  fi
+  pid="$(cat "$pidfile")"
+  # negative PID signals the whole process group created by setsid
+  kill -INT -- "-$pid" 2>/dev/null || kill -INT "$pid" 2>/dev/null || true
+  for i in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL -- "-$pid" 2>/dev/null || true
+  fi
+  rm -f "$pidfile"
+  echo "  $name: stopped"
+}
+
+_wait_port() {  # host:port
+  local port="$1" timeout="${2:-30}" i=0
+  until (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
+    i=$((i + 1))
+    [ "$i" -ge "$timeout" ] && { echo "  timeout waiting for port $port" >&2; return 1; }
+    sleep 1
+  done
+}
+
+_wait_node() {  # ros1 node name
+  local node="$1" timeout="${2:-30}" i=0
+  while ! bash -c "source '$SCRIPTS/runtime_env.sh' ros1 >/dev/null 2>&1; rosnode list 2>/dev/null" \
+        | grep -qx "$node"; do
+    i=$((i + 1))
+    [ "$i" -ge "$timeout" ] && { echo "  timeout waiting for node $node" >&2; return 1; }
+    sleep 1
+  done
+}
+
+_ros1() { bash -c "source '$SCRIPTS/runtime_env.sh' ros1 >/dev/null 2>&1; export ROS_MASTER_URI='$ROS_MASTER_URI'; $*"; }
+_ros2() { bash -c "source '$SCRIPTS/runtime_env.sh' ros2 >/dev/null 2>&1; $*"; }
+
+_wait_ros2_topic() {  # pattern min timeout
+  local pat="$1" min="${2:-1}" timeout="${3:-30}" i=0
+  while [ "$(_ros2 'ros2 topic list 2>/dev/null' 2>/dev/null | grep -c "$pat" || true)" -lt "$min" ]; do
+    i=$((i + 1))
+    [ "$i" -ge "$timeout" ] && { echo "  timeout waiting for ROS 2 topics ($pat)" >&2; return 1; }
+    sleep 1
+  done
+}
+
+# --------------------------------------------------------------- commands ----
+cmd_start() {
+  echo "Starting JACO bring-up (robot type: $ROBOT_TYPE) ..."
+  _spawn roscore ros1 "roscore"
+  _wait_port 11311 30 || { echo "roscore failed; see logs/roscore.log" >&2; return 1; }
+
+  _spawn driver ros1 "roslaunch kinova_bringup kinova_robot.launch kinova_robotType:=$ROBOT_TYPE"
+  _wait_node "/${ROBOT_TYPE}_driver" 40 \
+    || { echo "driver failed to come up; see logs/driver.log" >&2; return 1; }
+
+  _spawn bridge bridge "ros2 run ros1_bridge dynamic_bridge --bridge-all-1to2-topics"
+  _wait_ros2_topic "j2s6s300" 5 30 || true
+  echo "Done."
+  cmd_status
+}
+
+cmd_stop() {
+  echo "Stopping JACO bring-up ..."
+  _stop bridge
+  _stop driver
+  _stop roscore
+}
+
+cmd_status() {
+  echo "Processes:"
+  local name
+  for name in roscore driver bridge; do
+    if _is_running "$name"; then
+      echo "  $name: running (pid $(cat "$LOG/$name.pid"))"
+    else
+      echo "  $name: stopped"
+    fi
+  done
+  echo "ROS 1 nodes:"
+  _ros1 'rosnode list 2>/dev/null' 2>/dev/null | sed 's/^/  /' || true
+  local n
+  n="$(_ros2 'ros2 topic list 2>/dev/null' 2>/dev/null | grep -c "j2s6s300" || true)"
+  echo "ROS 2 bridged topics matching 'j2s6s300': ${n:-0}"
+}
+
+cmd_verify() { exec "$SCRIPTS/verify_topics.sh"; }
+
+# Show messages from a bridged topic and EXIT BY ITSELF after N seconds. Use this
+# instead of a bare `ros2 topic echo`: in an LXC/container session Ctrl+C can reach
+# the container's main process group and drop you to the host, so we avoid needing it.
+cmd_echo() {
+  [ "$#" -ge 1 ] || { echo "usage: jaco echo <topic> [seconds]" >&2; return 2; }
+  local topic="$1" secs="${2:-3}"
+  _JTOPIC="$topic" _JSECS="$secs" \
+    bash -c 'source "$0/scripts/runtime_env.sh" ros2 >/dev/null 2>&1; exec ros2 topic echo "$_JTOPIC" --timeout "$_JSECS"' "$ROOT"
+}
+
+# SAFE self-stopping joint jog. Publishes a velocity then ALWAYS publishes zeros
+# (the driver has no watchdog, so the explicit stop is mandatory). See scripts/jog.py.
+cmd_jog() {
+  [ "$#" -ge 3 ] || { echo "usage: jaco jog <joint 1-6> <deg/s> <seconds> [--check]" >&2; return 2; }
+  bash -c 'source "$0/scripts/runtime_env.sh" ros2 >/dev/null 2>&1; exec python3 "$0/scripts/jog.py" "$@"' "$ROOT" "$@"
+}
+
+cmd_logs() {
+  local name="${1:-driver}"
+  [ -f "$LOG/$name.log" ] || { echo "no such log: logs/$name.log" >&2; exit 1; }
+  tail -n 50 -f "$LOG/$name.log"
+}
+
+cmd_help() { awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; }
+
+case "${1:-help}" in
+  start)   cmd_start ;;
+  stop)    cmd_stop ;;
+  restart) cmd_stop; cmd_start ;;
+  status)  cmd_status ;;
+  verify)  cmd_verify ;;
+  echo)    shift; cmd_echo "$@" ;;
+  jog)     shift; cmd_jog "$@" ;;
+  logs)    shift; cmd_logs "${1:-driver}" ;;
+  help|-h|--help) cmd_help ;;
+  *) echo "unknown command: $1" >&2; cmd_help; exit 1 ;;
+esac
