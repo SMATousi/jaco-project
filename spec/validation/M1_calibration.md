@@ -216,3 +216,52 @@ seed after each capture.
 
 Risks: R15 (arm passthrough), R16 (camera passthrough), **R17 (camera restart can
 re-enumerate the USB bus and kill the arm driver)**.
+
+---
+
+## Session end (2026-10-19)
+
+Everything was stopped cleanly while waiting for the host USB refresh:
+
+| service | state | stop command |
+|---------|-------|--------------|
+| arm stack (`roscore`, driver, bridge) | **stopped** | `bash scripts/jaco stop` |
+| cameras (`cam0`–`cam2`) | **stopped** (devices absent) | `bash scripts/20_cameras.sh stop` |
+| VLA server (pid 229411) | **stopped**, no GPU memory held | `bash scripts/40_vla_server.sh stop` |
+| calibration static TF | **stopped** | `bash scripts/62_calibration_tf.sh stop` |
+
+No motion was commanded at any point during the incident or the shutdown.
+
+### What was validated before stopping
+
+- **Synthetic hand-eye test:** the full solve chain was fed 14 synthetic samples generated
+  from a known `T_base_cam` (translation `[1.200, 0.000, 0.600]` m). All five OpenCV
+  methods recovered the transform to machine precision (translation error ~6e-16 m,
+  rotation error 0.0°); the YAML/TF composition was checked against the same ground truth.
+- **Capture error path:** with no camera present, `handeye_capture.py` exits 3 with
+  `{"ok": false, "reason": "no image/camera_info"}` (well-formed JSON, no hang).
+- **Preflight guards:** `scripts/jaco start` refuses with
+  `the Kinova arm (22cd:0000) is not present...`; `scripts/20_cameras.sh start cam0`
+  refuses with `USB port 2-2.2 is absent...`. Neither starts a partial stack.
+- **TF publisher:** `62_calibration_tf.sh start/status/stop` tested against the synthetic
+  YAML; the publisher starts and stops cleanly.
+
+### Resume checklist (host refresh first)
+
+```bash
+# HOST: refresh the Incus USB passthrough for arm (22cd:0000) + cameras (8086:0b07)
+# then, inside the container:
+ls /sys/bus/usb/devices/ | sort -V      # expect 1-7, 2-2.2, 2-2.4, ...
+ls /sys/class/video4linux/              # expect videoN entries
+
+bash scripts/jaco start                 # preflight refuses if the arm is absent
+bash scripts/jaco verify
+bash scripts/20_cameras.sh start cam0   # preflight refuses if 2-2.2/serial is absent
+# confirm cam0_* frames, then reposition the camera + attach the printed marker
+python3 scripts/handeye_run.py --marker-size <measured_m> --dry-run
+python3 scripts/handeye_run.py --marker-size <measured_m> --yes
+bash scripts/62_calibration_tf.sh start
+```
+
+**Do not restart a camera node while the arm is active** until the host passthrough is made
+stable (R17).

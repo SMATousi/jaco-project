@@ -137,3 +137,18 @@ max = 115.21 ms.** Target was ≤250 ms per chunk → **met**.
 **Remaining for M2 → M3:** feed real RGB-D from `policy_client`, define the action
 mapping (base outputs → JACO2 velocity commands) and clamp/watchdog policy, and benchmark
 end-to-end latency with camera capture + ROS transport.
+
+---
+
+## Shutdown (2026-10-19)
+
+The resident server (pid 229411, 901.6 MB VRAM) was stopped cleanly after the offline
+measurements:
+
+```bash
+bash scripts/40_vla_server.sh stop     # -> vla_server: stopped
+```
+
+No GPU memory is held while the arm/camera USB recovery is pending.  Restart with
+`bash scripts/40_vla_server.sh start` (model load ≈5.2 s, two warm-up passes); the offline
+gate results above remain valid.

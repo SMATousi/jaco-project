@@ -67,7 +67,8 @@ missing edge is `j2s6s300_link_base ↔ cam0_link`. Tooling is written and ready
 `62_calibration_tf.sh`, `config/handeye_poses.txt`, printable
 `calibration/aruco_4x4_50_id0.png`. Physical blockers: the current `cam0` view does not
 include the gripper/workspace (camera too close and horizontal), and the marker must be
-printed and attached to the gripper. Full log:
+printed and attached to the gripper. All processes (arm stack, cameras, VLA server) are
+**stopped** for the host USB refresh; no motion was commanded. Full log:
 [`validation/M1_calibration.md`](validation/M1_calibration.md).
 
 ---

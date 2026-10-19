@@ -52,12 +52,13 @@ These were verified directly, not assumed:
 | RealSense SDK | ✅ installed 2026-10-19 (APT, pinned); 6/7 cameras enumerate, `cam0` streams RGB-D. |
 | Internet | huggingface.co reachable (HTTP 200). |
 
-> 🔴 **Current robot state (blocked):** a camera-node restart on 2026-10-19 21:20
-> re-enumerated the USB bus. The container's USB sysfs lost **both** the arm (`1-7`) and all
-> cameras (`2-2.x`), and the arm driver died with `KinovaCommException 1015`. The stack is
-> stopped cleanly; **no motion was commanded**. A host-side Incus USB refresh for the arm +
-> cameras is required (R15/R16/R17). Recovery steps, evidence and the ready-to-run
-> calibration tooling: [`validation/M1_calibration.md`](validation/M1_calibration.md).
+> 🔴 **Current robot state (blocked, all processes stopped):** a camera-node restart on
+> 2026-10-19 21:20 re-enumerated the USB bus. The container's USB sysfs lost **both** the
+> arm (`1-7`) and all cameras (`2-2.x`), and the arm driver died with `KinovaCommException
+> 1015`. The arm stack, all camera nodes and the VLA server are **stopped**; **no motion was
+> commanded**. A host-side Incus USB refresh for the arm + cameras is required
+> (R15/R16/R17). Recovery steps, evidence and the ready-to-run calibration tooling:
+> [`validation/M1_calibration.md`](validation/M1_calibration.md). Last commit: `4316007`.
 >
 > ⚠️ **Storage:** only **8.5 GB free** on `/` after the M2 env + SmolVLA weights. Fine for
 > zero-shot inference; **not** enough for a 7 B model or a demo dataset — D4 (`/dev/sda`,
