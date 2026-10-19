@@ -52,13 +52,14 @@ These were verified directly, not assumed:
 | RealSense SDK | ✅ installed 2026-10-19 (APT, pinned); 6/7 cameras enumerate, `cam0` streams RGB-D. |
 | Internet | huggingface.co reachable (HTTP 200). |
 
-> ⚠️ **Current robot state:** the arm driver crashed during the 3-day gap, and on restart
-> the Kinova **re-enumerated to USB devnum 26**. This is an **Incus container**, which passes
-> USB nodes through by fixed device number, so the container has no `/dev/bus/usb/001/026` —
-> the driver reports *"0 attached devices"*. **A host-side Incus device refresh (or a physical
-> replug) is required**; it cannot be fixed from inside the container (`mknod` is blocked,
-> sysfs `uevent` is read-only). Details and exact host commands:
-> [`validation/M0_environment.md`](validation/M0_environment.md), risk **R15**.
+> ✅ **Current robot state:** the arm is **back online**. The host refreshed the Incus USB
+> passthrough (`/dev/bus/usb/001/026` now exists), the driver reports `Jaco V2 Service`,
+> **12** topics are bridged, and joint feedback is valid. No motion has been commanded since
+> recovery. Root cause and host commands (R15): [`validation/M0_environment.md`](validation/M0_environment.md).
+>
+> ⚠️ **Storage:** only **8.5 GB free** on `/` after the M2 env + SmolVLA weights. Fine for
+> zero-shot inference; **not** enough for a 7 B model or a demo dataset — D4 (`/dev/sda`,
+> 2.7 TB) is the next blocking decision.
 
 ## 4. Headline recommendation (for approval)
 
@@ -88,7 +89,7 @@ Once D1–D8 are settled, implementation starts at **M0** in `07_roadmap_and_val
 
 | Milestone | Status | Evidence |
 |-----------|--------|----------|
-| M0 — Environment + RealSense | 🟡 **partial** | RealSense installed; `cam0` (`2-2.2`, `935322072821`) streams color+depth ~27 Hz; `config/cameras.yaml` + `scripts/20_cameras.sh`. Arm **blocked** on Incus passthrough (R15). |
+| M0 — Environment + RealSense | 🟡 **near done** | RealSense installed; `cam0` (`2-2.2`, `935322072821`) streams color+depth ~27 Hz; 10-min soak with **0** driver frame-timeouts. Arm **recovered** (12 topics, valid joint feedback). Remaining: RGB-D soak + authorized motion check. |
 | M1 — Calibration & TF | ⬜ not started | needs arm feedback for base↔camera extrinsics |
 | M2 — VLA inference server | ✅ **offline** | SmolVLA base → 50×6 chunks, **p50 113.8 ms** (p95 115.2 ms), deterministic per seed; `vla/` + `scripts/40_vla_server.sh`. Base actions are **not** JACO2 commands (M3/M6). |
 | M3 — Mapper + safety | ⬜ not started | |

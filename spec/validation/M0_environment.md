@@ -2,7 +2,7 @@
 
 **Started:** 2026-10-19
 **Operator:** agent (documented step by step)
-**Status:** IN PROGRESS — RealSense streaming on `cam0`; **arm blocked on host-side Incus action**
+**Status:** IN PROGRESS — RealSense streaming on `cam0`; **arm recovered** (host refreshed the Incus USB node 2026-10-19 21:05, driver healthy, 12 bridged topics). Remaining: RGB-D soak + authorized motion check.
 
 ---
 
@@ -106,6 +106,28 @@ bash scripts/jaco verify
 > the host device should be configured so it follows the device
 > (`usb`/`unix-hotplug`), not pinned to a single `/dev/bus/usb/BBB/DDD` path.
 > This is now **R15** in `spec/08_risks_and_decisions.md`.
+
+### Resolution — 2026-10-19 21:05 UTC
+
+The host refreshed the Incus USB device and **`/dev/bus/usb/001/026` appeared**
+(`c 189,25`, matching `/sys/bus/usb/devices/1-7/dev`). The arm stack was restarted:
+
+```bash
+bash scripts/jaco restart
+```
+
+**Result**
+
+| Check | Result |
+|-------|--------|
+| Driver device discovery | ✅ `Found 1 device(s), ... (model: Jaco V2 Service, serial number: Serial Not Set, code version: 393745)` |
+| Bridged ROS 2 topics matching `j2s6s300` | ✅ **12** |
+| `scripts/jaco verify` joint feedback | ✅ joint1..6 = 273.36, 177.23, 80.63, 244.09, 80.93, 76.50 (deg); joint7 = 0 |
+| Motion commanded | none (driver init only; no jog until explicit authorization + e-stop in hand) |
+
+The arm is healthy again. Remaining M0 items: a clean ≥10 min **RGB-D** soak and a
+motion-authorized jog/step-response check (M1/M3). The `2-2.1` camera (R16) was *not*
+refreshed by this host action — its video nodes remain outside the passthrough.
 
 ---
 
@@ -256,7 +278,7 @@ and needs a host-side passthrough fix to be robust (same class as the arm's R15)
 | Camera streams RGB-D at target rate, no underruns | ✅ `cam0` (`2-2.2`, ~27 Hz observed via Python subscriber) |
 | Stable camera names by serial | ✅ `config/cameras.yaml` + `scripts/20_cameras.sh` |
 | ≥ 10 min continuous run | ⏳ to run |
-| Arm stack healthy | ❌ **blocked — host must refresh the Incus Kinova USB device (R15)** |
+| Arm stack healthy | ✅ recovered (host refresh); driver found `Jaco V2 Service`, 12 bridged topics, joint feedback valid |
 | 6/7 cameras usable | ✅ (7th = 2-2.1 needs host fix; 2-2.3 fails to instantiate) |
 
 

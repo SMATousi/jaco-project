@@ -34,11 +34,12 @@ a short findings note (which serial ↔ which USB bus).
 **Gate:** N cameras publish RGB-D at the configured rate continuously for **≥ 10 min** with
 no dropped frames/underruns; arm feedback topics present.
 
-**Status (2026-10-19):** 🟡 PARTIAL — RealSense stack installed; `cam0` (`2-2.2`,
-serial `935322072821`) streams color+depth at ~27 Hz with no frame warnings; helper
-`scripts/20_cameras.sh` and `config/cameras.yaml` added. **Arm blocked:** the Kinova
-re-enumerated to a USB device number that Incus does not pass into the container (R15);
-needs a host-side device refresh. The ≥10 min soak and the arm-feedback check remain.
+**Status (2026-10-19):** 🟡 PARTIAL → nearly done. RealSense stack installed; `cam0`
+(`2-2.2`, serial `935322072821`) streams color+depth at ~27 Hz with no frame warnings;
+10-min color soak had **0 driver frame-timeouts**; helper `scripts/20_cameras.sh` and
+`config/cameras.yaml` added. **Arm recovered** after the host refreshed the Incus USB
+node (R15): driver reports `Jaco V2 Service`, **12** bridged topics, valid joint feedback.
+Remaining: a clean ≥10 min **RGB-D** soak and a motion-authorized jog/step-response check.
 Full evidence: [`validation/M0_environment.md`](validation/M0_environment.md).
 
 ---
