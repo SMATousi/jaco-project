@@ -21,16 +21,16 @@
 
 ## 2. Decisions needed from you
 
-| # | Decision | Options | Recommendation |
-|---|----------|---------|----------------|
-| **D1** | Model + order | SmolVLA-first → OpenVLA; OpenVLA-first; π0/GR00T | **SmolVLA-first**, then **OpenVLA-7B (+LoRA)** |
-| **D2** | First task | tabletop pick-place; button press; drawer; handover | **tabletop pick-and-place** (2–3 blocks + tray) |
-| **D3** | Cameras | 2 / 3 / all 7; which views | **2–3**: 1–2 static workspace + (if available) wrist; prefer USB-3 |
-| **D4** | Storage | format/mount `/dev/sda` (2.7 TB) as `/data`; free `/`; use `/dev/sdb` | **format & mount `/dev/sda`** (needs your OK — currently no filesystem) |
-| **D5** | Action interface | joint velocity; EEF velocity; bounded joint trajectory; + gripper relay | **velocity first**, add **bounded trajectory** after verifying the topic; add gripper relay |
-| **D6** | Teleop hardware | gamepad; SpaceMouse; keyboard | **gamepad** (tell me what you have) |
-| **D7** | Scope | zero-shot only; + fine-tuning | **include fine-tuning** (needed for real success) |
-| **D8** | RealSense install | APT `realsense2-camera`; source build | **APT**, pinned |
+| # | Decision | Options | Recommendation | Decision |
+|---|----------|---------|----------------| -------- |
+| **D1** | Model + order | SmolVLA-first → OpenVLA; OpenVLA-first; π0/GR00T | **SmolVLA-first**, then **OpenVLA-7B (+LoRA)** | Recommendation approved | 
+| **D2** | First task | tabletop pick-place; button press; drawer; handover | **tabletop pick-and-place** (2–3 blocks + tray) | Recommendation approved | 
+| **D3** | Cameras | 2 / 3 / all 7; which views | **2–3**: 1–2 static workspace + (if available) wrist; prefer USB-3 | 1-2 static (without wrist for the first draft) |
+| **D4** | Storage | format/mount `/dev/sda` (2.7 TB) as `/data`; free `/`; use `/dev/sdb` | **format & mount `/dev/sda`** (needs your OK — currently no filesystem) | Not decided yet |
+| **D5** | Action interface | joint velocity; EEF velocity; bounded joint trajectory; + gripper relay | **velocity first**, add **bounded trajectory** after verifying the topic; add gripper relay | Recommendation approved | 
+| **D6** | Teleop hardware | gamepad; SpaceMouse; keyboard | **gamepad** (tell me what you have) |  Recommendation approved (I have the Kinova joystick) | 
+| **D7** | Scope | zero-shot only; + fine-tuning | **include fine-tuning** (needed for real success) | Recommendation approved | 
+| **D8** | RealSense install | APT `realsense2-camera`; source build | **APT**, pinned | Recommendation approved | 
 
 ## 3. Open questions
 
