@@ -54,18 +54,29 @@ This machine runs inside an **Incus container**. USB passthrough is per-item:
 - When a device **re-enumerates**, its device/video number changes, and the old path vanishes
   from the container. The host must refresh the passthrough.
 
-Observed twice in M0:
+The video-node numbers in the table above are **historical** — they shift on every
+re-enumeration, so always re-check them at runtime.
+
+Observed three times in M0/M1:
 
 | Device | Before | After | Effect |
 |--------|--------|-------|--------|
 | Kinova arm | devnum 24 | devnum 26 | no `/dev/bus/usb/001/026` → driver sees "0 attached devices" |
 | RealSense `2-2.1` | `video36-41` | `video42-47` | new nodes not in container → camera unusable |
+| **arm + all cameras** | `1-7`, `2-2.x`, `video*` | **all USB sysfs entries gone** | stopping/starting `cam0` at 21:20 dropped every device; the arm driver died (`KinovaCommException`, return code 1015) |
 
 Workarounds until the host is reconfigured: use devices whose numbers are still passed
-(`cam0`/`cam1` on `2-2.2`/`2-2.4`), and **stop nodes cleanly** (`scripts/20_cameras.sh`) to
-avoid triggering resets. The durable fix is host-side: make the Kinova + `0b07` USB/video
-devices follow the device (e.g. `unix-hotplug`) instead of fixed paths. See
-`spec/validation/M0_environment.md` and risks **R15/R16**.
+(`cam0`/`cam1` on `2-2.2`/`2-2.4`), **never restart a camera node while the arm is
+active**, and after any USB event refresh the host passthrough for the arm **and** the
+cameras before restarting the stacks. The durable fix is host-side: make the Kinova +
+`0b07` USB/video devices follow the device (e.g. `unix-hotplug`) instead of fixed paths.
+See `spec/validation/M0_environment.md`, `spec/validation/M1_calibration.md`, and risks
+**R15/R16/R17**.
+
+Camera TF frame names: `scripts/20_cameras.sh` now passes `camera_name:=$name`, so the
+next start publishes `cam0_link`, `cam0_color_frame`, `cam0_color_optical_frame`, … while
+the topics stay under `/cam0/camera/...`. This gives each camera a unique TF prefix for
+multi-camera calibration.
 
 ## 2. Software already present
 

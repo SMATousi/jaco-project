@@ -52,14 +52,16 @@ These were verified directly, not assumed:
 | RealSense SDK | ✅ installed 2026-10-19 (APT, pinned); 6/7 cameras enumerate, `cam0` streams RGB-D. |
 | Internet | huggingface.co reachable (HTTP 200). |
 
-> ✅ **Current robot state:** the arm is **back online**. The host refreshed the Incus USB
-> passthrough (`/dev/bus/usb/001/026` now exists), the driver reports `Jaco V2 Service`,
-> **12** topics are bridged, and joint feedback is valid. No motion has been commanded since
-> recovery. Root cause and host commands (R15): [`validation/M0_environment.md`](validation/M0_environment.md).
+> 🔴 **Current robot state (blocked):** a camera-node restart on 2026-10-19 21:20
+> re-enumerated the USB bus. The container's USB sysfs lost **both** the arm (`1-7`) and all
+> cameras (`2-2.x`), and the arm driver died with `KinovaCommException 1015`. The stack is
+> stopped cleanly; **no motion was commanded**. A host-side Incus USB refresh for the arm +
+> cameras is required (R15/R16/R17). Recovery steps, evidence and the ready-to-run
+> calibration tooling: [`validation/M1_calibration.md`](validation/M1_calibration.md).
 >
 > ⚠️ **Storage:** only **8.5 GB free** on `/` after the M2 env + SmolVLA weights. Fine for
 > zero-shot inference; **not** enough for a 7 B model or a demo dataset — D4 (`/dev/sda`,
-> 2.7 TB) is the next blocking decision.
+> 2.7 TB) is the next decision after the USB recovery.
 
 ## 4. Headline recommendation (for approval)
 
@@ -89,8 +91,8 @@ Once D1–D8 are settled, implementation starts at **M0** in `07_roadmap_and_val
 
 | Milestone | Status | Evidence |
 |-----------|--------|----------|
-| M0 — Environment + RealSense | 🟡 **near done** | RealSense installed; `cam0` (`2-2.2`, `935322072821`) streams color+depth ~27 Hz; 10-min soak with **0** driver frame-timeouts. Arm **recovered** (12 topics, valid joint feedback). Remaining: RGB-D soak + authorized motion check. |
-| M1 — Calibration & TF | ⬜ not started | needs arm feedback for base↔camera extrinsics |
+| M0 — Environment + RealSense | 🟡 **partial, blocked** | RealSense + `cam0` proved (~27 Hz, 0 frame-timeouts in a 10-min soak); arm feedback was verified, then a camera-node restart re-enumerated USB and killed the arm driver (R17). Host refresh needed. |
+| M1 — Calibration & TF | 🔴 **blocked, tooling ready** | TF/intrinsics audited; hand-eye scripts + ArUco target written. Needs host USB refresh, camera repositioning (gripper not in view), and the printed marker attached. |
 | M2 — VLA inference server | ✅ **offline** | SmolVLA base → 50×6 chunks, **p50 113.8 ms** (p95 115.2 ms), deterministic per seed; `vla/` + `scripts/40_vla_server.sh`. Base actions are **not** JACO2 commands (M3/M6). |
 | M3 — Mapper + safety | ⬜ not started | |
 | M4 — Closed loop | ⬜ not started | |

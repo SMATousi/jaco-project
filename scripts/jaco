@@ -96,8 +96,29 @@ _wait_ros2_topic() {  # pattern min timeout
 }
 
 # --------------------------------------------------------------- commands ----
+_arm_usb_present() {
+  # The arm is 22cd:0000.  Its port can move after a re-enumeration, so scan the
+  # sysfs IDs instead of hard-coding a port.  If this returns false the Incus
+  # passthrough needs a host refresh (R15/R17); do not start the driver.
+  local d
+  for d in /sys/bus/usb/devices/*; do
+    [ -f "$d/idVendor" ] || continue
+    if [ "$(cat "$d/idVendor" 2>/dev/null)" = "22cd" ] \
+       && [ "$(cat "$d/idProduct" 2>/dev/null)" = "0000" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 cmd_start() {
   echo "Starting JACO bring-up (robot type: $ROBOT_TYPE) ..."
+  if ! _arm_usb_present; then
+    echo "ERROR: the Kinova arm (22cd:0000) is not present in this container's USB sysfs." >&2
+    echo "Refresh the host Incus USB passthrough (or replug the arm) before starting." >&2
+    echo "See spec/validation/M1_calibration.md (R15/R17)." >&2
+    return 1
+  fi
   _spawn roscore ros1 "roscore"
   _wait_port 11311 30 || { echo "roscore failed; see logs/roscore.log" >&2; return 1; }
 

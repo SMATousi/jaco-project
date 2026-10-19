@@ -24,6 +24,19 @@ declare -A SERIAL=(
   [cam2]="014122071597"   # port 1-9.1 (USB 2), video12-17
 )
 
+# USB port used as a preflight check.  The video node numbers are NOT stable;
+# the port is (until the device is replugged).  If the port is absent from the
+# container sysfs, the host passthrough must be refreshed first (R15/R16/R17).
+declare -A PORT=(
+  [cam0]="2-2.2"
+  [cam1]="2-2.4"
+  [cam2]="1-9.1"
+)
+
+_serial_pids() {
+  pgrep -f "realsense2_camera_node.*serial_no:.*$1" 2>/dev/null || true
+}
+
 PROFILE_COLOR="640x480x30"
 PROFILE_DEPTH="640x480x30"
 
@@ -44,10 +57,30 @@ _start() {
     echo "  $name already running (pid $(cat "$LOG/$name.pid"))"
     return 0
   fi
+
+  local port="${PORT[$name]:-}"
+  if [ -n "$port" ] && [ ! -d "/sys/bus/usb/devices/$port" ]; then
+    echo "  $name: USB port $port is absent from this container." >&2
+    echo "  Refresh the host Incus USB passthrough (or replug the camera) first." >&2
+    return 1
+  fi
+
+  # A stale pid file can hide a live node; never start a second node on the
+  # same serial (two nodes fighting for the device triggered a USB reset, R17).
+  local existing
+  existing="$(_serial_pids "$serial")"
+  if [ -n "$existing" ]; then
+    echo "  $name: refusing to start; serial $serial already in use by:" >&2
+    echo "$existing" | sed 's/^/    /' >&2
+    echo "  stop it with: bash scripts/20_cameras.sh stop $name" >&2
+    return 1
+  fi
+
   setsid bash -c 'source /opt/ros/jazzy/setup.bash
     exec ros2 run realsense2_camera realsense2_camera_node \
       --ros-args -r "__ns:=/$0" -r __node:=camera \
       -p "serial_no:='\''$1'\''" \
+      -p camera_name:=$0 \
       -p enable_color:=true -p enable_depth:=true \
       -p enable_infra1:=false -p enable_infra2:=false \
       -p align_depth.enable:=true -p pointcloud.enable:=false \
@@ -60,18 +93,30 @@ _start() {
 }
 
 _stop() {
-  local name="$1" pidfile="$LOG/$name.pid" pid
-  if ! _is_running "$name"; then
-    rm -f "$pidfile"
-    echo "  $name: not running"
-    return 0
+  local name="$1" pidfile="$LOG/$name.pid" pid serial="${SERIAL[$1]:-}"
+  local stopped=0
+  if _is_running "$name"; then
+    pid="$(cat "$pidfile")"
+    kill -INT -- "-$pid" 2>/dev/null || kill -INT "$pid" 2>/dev/null || true
+    for _ in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+    kill -KILL -- "-$pid" 2>/dev/null || true
+    stopped=1
   fi
-  pid="$(cat "$pidfile")"
-  kill -INT -- "-$pid" 2>/dev/null || kill -INT "$pid" 2>/dev/null || true
-  for _ in $(seq 1 10); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
-  kill -KILL -- "-$pid" 2>/dev/null || true
+  # Fallback for a stale pid file or a reparented child: kill by serial.
+  if [ -n "$serial" ]; then
+    local p
+    for p in $(_serial_pids "$serial"); do
+      kill -KILL "$p" 2>/dev/null || true
+      stopped=1
+    done
+  fi
   rm -f "$pidfile"
-  echo "  $name: stopped"
+  if [ "$stopped" = 1 ]; then
+    echo "  $name: stopped"
+    sleep 1   # give the kernel a moment to release the video nodes
+  else
+    echo "  $name: not running"
+  fi
 }
 
 _all() { echo cam0 cam1 cam2; }

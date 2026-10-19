@@ -34,13 +34,15 @@ a short findings note (which serial ↔ which USB bus).
 **Gate:** N cameras publish RGB-D at the configured rate continuously for **≥ 10 min** with
 no dropped frames/underruns; arm feedback topics present.
 
-**Status (2026-10-19):** 🟡 PARTIAL → nearly done. RealSense stack installed; `cam0`
-(`2-2.2`, serial `935322072821`) streams color+depth at ~27 Hz with no frame warnings;
-10-min color soak had **0 driver frame-timeouts**; helper `scripts/20_cameras.sh` and
-`config/cameras.yaml` added. **Arm recovered** after the host refreshed the Incus USB
-node (R15): driver reports `Jaco V2 Service`, **12** bridged topics, valid joint feedback.
-Remaining: a clean ≥10 min **RGB-D** soak and a motion-authorized jog/step-response check.
-Full evidence: [`validation/M0_environment.md`](validation/M0_environment.md).
+**Status (2026-10-19):** 🟡 PARTIAL, currently **blocked**. RealSense stack installed;
+`cam0` (`2-2.2`, serial `935322072821`) streamed color+depth at ~27 Hz with **0** driver
+frame-timeouts during a 10-min color soak. Arm feedback was verified after a host refresh
+(`Jaco V2 Service`, **12** bridged topics), but a later camera-node restart re-enumerated
+the USB bus and killed the arm driver (R17); both the arm (`1-7`) and the cameras
+(`2-2.x`) are now absent from the container sysfs. The host must refresh the passthrough
+before the RGB-D soak and the motion check. Evidence:
+[`validation/M0_environment.md`](validation/M0_environment.md),
+[`validation/M1_calibration.md`](validation/M1_calibration.md).
 
 ---
 
@@ -56,6 +58,17 @@ Full evidence: [`validation/M0_environment.md`](validation/M0_environment.md).
 
 **Gate:** a known table point maps consistently across 2+ views into the arm base frame
 (error within a stated tolerance, e.g. < 1–2 cm for the static views).
+
+**Status (2026-10-19):** 🔴 **BLOCKED on the host USB refresh.** Read-only audit done:
+arm TF `world → root → j2s6s300_link_base → … → link_6` and colour intrinsics
+(640×480; fx 604.02, fy 602.75, cx 309.19, cy 237.92; `plumb_bob`, D=0) confirmed. The
+missing edge is `j2s6s300_link_base ↔ cam0_link`. Tooling is written and ready:
+`scripts/handeye_move.py`, `handeye_capture.py`, `handeye_solve.py`, `handeye_run.py`,
+`62_calibration_tf.sh`, `config/handeye_poses.txt`, printable
+`calibration/aruco_4x4_50_id0.png`. Physical blockers: the current `cam0` view does not
+include the gripper/workspace (camera too close and horizontal), and the marker must be
+printed and attached to the gripper. Full log:
+[`validation/M1_calibration.md`](validation/M1_calibration.md).
 
 ---
 

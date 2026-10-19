@@ -1,0 +1,21 @@
+# Relative joint deltas (degrees) from the seed pose: j1 j2 j3 j4 j5 j6
+#
+# Wrist-only rotations keep the gripper near the seed and give the hand-eye
+# solver the non-parallel rotations it needs.  Keep every |delta| <= 35 and
+# stay inside the JACO2 limits (j2 47..313, j3 19..341, j5 30..330).
+#
+# The orchestrator moves seed -> pose, captures, then returns to seed.
+# If the marker leaves the camera view at a pose, the run aborts safely.
+
+  0   0   0   35   0   0
+  0   0   0  -35   0   0
+  0   0   0    0  25   0
+  0   0   0    0 -25   0
+  0   0   0    0   0  35
+  0   0   0    0   0 -35
+  0   0   0   25  15   0
+  0   0   0  -25 -15   0
+  0   0   0    0  15  25
+  0   0   0    0 -15 -25
+  0   0   0   20   0  20
+  0   0   0  -20   0 -20

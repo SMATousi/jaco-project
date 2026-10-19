@@ -20,6 +20,7 @@
 | R14 | **Calibration drift / mounting changes** | M | Med | rigidly mount cameras; re-run M1 gate after any move |
 | R15 | **Incus USB passthrough is pinned to device numbers** — *observed*: the arm re-enumerated devnum 24→26 and the container had no node, so the driver saw "0 attached devices" | H | High | host must refresh the Incus `kinova` device (or replug the arm); durable fix is a device that follows the device (`usb`/`unix-hotplug`); documented in `spec/validation/M0_environment.md` |
 | R16 | **Incus video-node passthrough is pinned (`video0-41`)** — *observed*: camera `2-2.1` re-enumerated to `video42-47`, outside the passthrough | M | High | use `cam0`/`cam1` on `2-2.2`/`2-2.4`; stop nodes cleanly via `scripts/20_cameras.sh`; host should pass the UVC devices dynamically |
+| R17 | **Restarting a camera re-enumerates the USB bus and kills the arm** — *observed 2026-10-19 21:20*: stopping/starting `cam0` to add `camera_name:=cam0` dropped **both** the arm (`1-7`) and all cameras (`2-2.x`) from the container's USB sysfs; the arm driver died with `KinovaCommException: Could not get the angular command (return code: 1015)` | H | Critical | never restart a camera node while the arm is active; after any USB event refresh the host passthrough for **arm + cameras**, then restart both stacks; add a preflight check that reads `/sys/bus/usb/devices` and the video mapping before launching; durable fix is passing a stable USB controller/hub, not pinned device nodes |
 
 ## 2. Decisions needed from you
 
