@@ -11,7 +11,7 @@ All numbers below were **measured on 2026-10-19**, not assumed.
 | GPU | **NVIDIA RTX 3090, 24 GB GDDR6X**, driver 595.84, `/dev/nvidia*` present |
 | CPU | Intel i9-12900K (24 threads) |
 | RAM | 31 GiB (~29 GiB available at idle) |
-| Storage | `/` (nvme0n1p3) 893 GB, **22 GB free (98 % full)**; `/dev/sda` **2.7 TB unformatted/unmounted**; `/dev/sdb` 74.5 GB (two small partitions, FS unknown) |
+| Storage | `/` (nvme0n1p3) 893 GB, **8.5 GB free (99 % full)** after the M2 env + weights; `/dev/sda` **2.7 TB unformatted/unmounted**; `/dev/sdb` 74.5 GB (two small partitions, FS unknown) |
 | Runtime | **Incus container** (`Ubuntu24`); USB devices are passed through individually — see 1c |
 
 ### 1a. USB topology & camera bandwidth (important)
@@ -75,6 +75,7 @@ devices follow the device (e.g. `unix-hotplug`) instead of fixed paths. See
 | ROS 1 Noetic + `kinova-ros` + `ros1_bridge`, `kinova_msgs` port | ✅ working (see repo README) |
 | Arm control helpers | ✅ `scripts/jaco`, `scripts/jog.py` |
 | RealSense | ✅ `ros-jazzy-librealsense2 2.58.4` + `ros-jazzy-realsense2-camera 4.58.4` (installed 2026-10-19) |
+| VLA env | ✅ conda `vla` (Py 3.11, torch 2.10+cu128, transformers 4.57.6, lerobot 0.4.4); SmolVLA base + SmolVLM2 backbone in HF cache (~2.8 GB) |
 | CUDA-capable PyTorch | ✅ in conda envs `qem-deep-learning` (py3.14, torch 2.13+cu126) and `blackwater` (py3.10, torch 2.13+cu130), `cuda True` |
 | conda | ✅ `/root/miniconda3` (base py3.14) |
 | colcon / rosdep | ✅ |

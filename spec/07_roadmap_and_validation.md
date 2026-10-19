@@ -70,6 +70,14 @@ Full evidence: [`validation/M0_environment.md`](validation/M0_environment.md).
 **Gate:** server returns well-formed action chunks; **p50 latency documented** (target
 ≤ 250 ms); same input+seed ⇒ same output (determinism).
 
+**Status (2026-10-19):** ✅ **offline gate passed.** `vla` env (Python 3.11, torch
+2.10+cu128), SmolVLA base loaded in 5.2 s, **50×6** chunks, **p50 113.8 ms / p95
+115.2 ms** (RTX 3090), deterministic for a fixed seed. Deliverables: `vla/smolvla_runtime.py`,
+`vla/vla_server.py`, `vla/vla_client.py`, `scripts/40_vla_server.sh`,
+`scripts/30_test_smolvla.py`. **Caveat:** base-model actions are not JACO2 commands — the
+mapping + safety gate is M3, and fine-tuning is M6. Disk is now 8.5 GB free (D4 urgent).
+Evidence: [`validation/M2_vla_server.md`](validation/M2_vla_server.md).
+
 ---
 
 ## M3 — Action mapper + safety supervisor (dry-run only)

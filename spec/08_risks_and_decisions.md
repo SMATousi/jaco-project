@@ -5,7 +5,7 @@
 | # | Risk | L | Impact | Mitigation |
 |---|------|---|--------|-----------|
 | R1 | **Arm driver crash / instability** — *observed*: `kinova_arm_driver` SIGSEGV'd while idle after a USB hiccup (`KinovaCommException 1015`) | M | High | health-monitor node; auto `scripts/jaco restart` on fault; safety supervisor stops the arm on lost feedback; keep the arm stack separate from policy code; report upstream |
-| R2 | **Storage exhaustion** — only ~21 GB free on `/` | H | High | resolve **D4** (`/dev/sda` 2.7 TB) before any 7 B model; use SmolVLA (< 2 GB) meanwhile; monitor `HH`/dataset sizes |
+| R2 | **Storage exhaustion** — **8.5 GB free** on `/` after the M2 env + SmolVLA weights (was 22 GB) | H | High | **resolve D4 now** (`/dev/sda` 2.7 TB): no room for OpenVLA-7B, datasets, or rollouts on `/`; SmolVLA inference still fits; monitor every download |
 | R3 | **USB bandwidth** — 3 of 7 cameras on a USB 2 hub | M | Med | use 2–3 cameras, prefer USB-3; lower res/FPS; re-cable if needed |
 | R4 | **RealSense ↔ ROS 2 Jazzy install friction** | M | Med | use APT `ros-jazzy-realsense2-camera`; pin version; fall back to source build |
 | R5 | **Embodiment gap** — JACO2 not a VLA training robot → poor zero-shot | H | High | treat zero-shot as a baseline only; plan LoRA fine-tuning (M6) |

@@ -90,7 +90,7 @@ Once D1–D8 are settled, implementation starts at **M0** in `07_roadmap_and_val
 |-----------|--------|----------|
 | M0 — Environment + RealSense | 🟡 **partial** | RealSense installed; `cam0` (`2-2.2`, `935322072821`) streams color+depth ~27 Hz; `config/cameras.yaml` + `scripts/20_cameras.sh`. Arm **blocked** on Incus passthrough (R15). |
 | M1 — Calibration & TF | ⬜ not started | needs arm feedback for base↔camera extrinsics |
-| M2 — VLA inference server | ⬜ not started | pending D4 (storage) / M0 close |
+| M2 — VLA inference server | ✅ **offline** | SmolVLA base → 50×6 chunks, **p50 113.8 ms** (p95 115.2 ms), deterministic per seed; `vla/` + `scripts/40_vla_server.sh`. Base actions are **not** JACO2 commands (M3/M6). |
 | M3 — Mapper + safety | ⬜ not started | |
 | M4 — Closed loop | ⬜ not started | |
 | M5 — Dataset | ⬜ not started | |
