@@ -1,0 +1,79 @@
+# Intel RealSense D435 inventory for the VLA rig.
+#
+# Measured 2026-10-19. IMPORTANT: select cameras by the *SDK* serial printed by
+# `rs-enumerate-devices -s` — the sysfs iSerial is the ASIC serial and differs.
+#
+# The first draft (decision D3) uses 1-2 static workspace views, no wrist camera.
+# Prefer the USB-3 cameras (ports 2-2.x); the 1-9.x trio is on a USB-2 hub.
+#
+# NOTE (Incus): video nodes are passed into the container by fixed path
+# (/dev/video0..41). If a camera re-enumerates, its videoN numbers can shift
+# above 41 and the camera becomes unusable until the host re-creates the
+# passthrough. See spec/validation/M0_environment.md and risk R16.
+
+cameras:
+  cam0:
+    serial: "935322072821"
+    port: "2-2.2"
+    usb: "3"
+    video_nodes: "video6-11"
+    role: "static workspace view (primary)"
+    enabled: true
+    color_profile: "640x480x30"
+    depth_profile: "640x480x30"
+    align_depth: true
+
+  cam1:
+    serial: "935422072205"
+    port: "2-2.4"
+    usb: "3"
+    video_nodes: "video30-35"
+    role: "static second view (optional)"
+    enabled: false
+    color_profile: "640x480x30"
+    depth_profile: "640x480x30"
+    align_depth: true
+
+  cam2:
+    serial: "014122071597"
+    port: "1-9.1"
+    usb: "2"
+    video_nodes: "video12-17"
+    role: "spare (USB 2 — low bandwidth)"
+    enabled: false
+    color_profile: "640x480x30"
+    depth_profile: "640x480x30"
+    align_depth: true
+
+  cam_usb2_b:
+    serial: "934222072312"
+    port: "1-9.2"
+    usb: "2"
+    video_nodes: "video18-23"
+    role: "spare (USB 2 — low bandwidth)"
+    enabled: false
+
+  cam_usb2_c:
+    serial: "021222072467"
+    port: "1-9.3"
+    usb: "2"
+    video_nodes: "video24-29"
+    role: "spare (USB 2 — low bandwidth)"
+    enabled: false
+
+# --- cameras that currently cannot be used from the container ---
+
+# Port 2-2.1 (serial 937622070994): re-enumerated and its video nodes shifted to
+# video42-47, which Incus does not pass into the container. Needs a host-side
+# device refresh (see M0 log) before it can be used again.
+pending_host_fix:
+  - serial: "937622070994"
+    port: "2-2.1"
+    reason: "video nodes shifted to video42-47 (not passed to container)"
+
+# Port 2-2.3: device enumerated but fails to instantiate:
+#   set_xu(...). xioctl(UVCIOC_CTRL_QUERY) failed on control 1 (ENOENT)
+# Re-test after a USB replug / reset.
+unresolved:
+  port: "2-2.3"
+  reason: "fails rs2_create_device (XU control 1)"

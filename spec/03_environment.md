@@ -7,11 +7,12 @@ All numbers below were **measured on 2026-10-19**, not assumed.
 | Component | Detail |
 |-----------|--------|
 | Arm | Kinova **JACO2 Gen2**, 6 DOF, 3-finger (`j2s6s300`), USB `22cd:0000` |
-| Cameras | **7× Intel RealSense D435** (`8086:0b07`), serials visible on 4 of 7 |
+| Cameras | **7× Intel RealSense D435** (`8086:0b07`); serial↔port map measured in M0 (see 1b) |
 | GPU | **NVIDIA RTX 3090, 24 GB GDDR6X**, driver 595.84, `/dev/nvidia*` present |
 | CPU | Intel i9-12900K (24 threads) |
 | RAM | 31 GiB (~29 GiB available at idle) |
-| Storage | `/` (nvme0n1p3) 893 GB, **21 GB free (98 % full)**; `/dev/sda` **2.7 TB unformatted/unmounted**; `/dev/sdb` 74.5 GB (two small partitions, FS unknown) |
+| Storage | `/` (nvme0n1p3) 893 GB, **22 GB free (98 % full)**; `/dev/sda` **2.7 TB unformatted/unmounted**; `/dev/sdb` 74.5 GB (two small partitions, FS unknown) |
+| Runtime | **Incus container** (`Ubuntu24`); USB devices are passed through individually — see 1c |
 
 ### 1a. USB topology & camera bandwidth (important)
 
@@ -22,7 +23,49 @@ All numbers below were **measured on 2026-10-19**, not assumed.
 
 D435 at 640×480@30 (depth) + 640×480@30 (color) ≈ **~180–300 Mbps per camera** raw. So the
 USB2 trio is the constraint. **Plan: use 2–3 cameras for the VLA; prefer USB3-attached ones
-until we re-cable the USB2 group.** (Confirm which serials are on which bus in M0.)
+until we re-cable the USB2 group.**
+
+### 1b. Measured camera inventory (M0, 2026-10-19)
+
+Select cameras by the **RealSense SDK serial** (`rs-enumerate-devices -s`); the sysfs
+`iSerial` is the **ASIC serial** and differs.
+
+| SDK serial | Port | Speed | Video nodes | Status |
+|-----------|------|-------|-------------|--------|
+| `935322072821` | `2-2.2` | USB 3 (5 Gbps) | `video6-11` | ✅ **`cam0` (primary)** |
+| `935422072205` | `2-2.4` | USB 3 | `video30-35` | ✅ `cam1` (second view) |
+| `014122071597` | `1-9.1` | USB 2 | `video12-17` | ✅ `cam2` (spare) |
+| `934222072312` | `1-9.2` | USB 2 | `video18-23` | ✅ spare |
+| `021222072467` | `1-9.3` | USB 2 | `video24-29` | ✅ spare |
+| `937622070994` | `2-2.1` | USB 3 | `video42-47` | ⛔ nodes outside container passthrough |
+| — | `2-2.3` | USB 3 | `video0-5` | ⛔ fails to create (`set_xu`, XU control 1) |
+
+Installed stack (APT, pinned): `ros-jazzy-librealsense2 2.58.4`, `ros-jazzy-realsense2-camera
+4.58.4`, `ros-jazzy-realsense2-camera-msgs 4.58.4`. Tools are in `/opt/ros/jazzy/bin/`
+(`rs-enumerate-devices`, `rs-capture`, …).
+
+Camera control: `config/cameras.yaml` + `scripts/20_cameras.sh {start|stop|status}`.
+
+### 1c. Incus USB passthrough constraint (important)
+
+This machine runs inside an **Incus container**. USB passthrough is per-item:
+
+- `/dev/bus/usb/BBB/DDD` and `/dev/videoN` are **bind-mounted by fixed path** from the host.
+- When a device **re-enumerates**, its device/video number changes, and the old path vanishes
+  from the container. The host must refresh the passthrough.
+
+Observed twice in M0:
+
+| Device | Before | After | Effect |
+|--------|--------|-------|--------|
+| Kinova arm | devnum 24 | devnum 26 | no `/dev/bus/usb/001/026` → driver sees "0 attached devices" |
+| RealSense `2-2.1` | `video36-41` | `video42-47` | new nodes not in container → camera unusable |
+
+Workarounds until the host is reconfigured: use devices whose numbers are still passed
+(`cam0`/`cam1` on `2-2.2`/`2-2.4`), and **stop nodes cleanly** (`scripts/20_cameras.sh`) to
+avoid triggering resets. The durable fix is host-side: make the Kinova + `0b07` USB/video
+devices follow the device (e.g. `unix-hotplug`) instead of fixed paths. See
+`spec/validation/M0_environment.md` and risks **R15/R16**.
 
 ## 2. Software already present
 
@@ -31,6 +74,7 @@ until we re-cable the USB2 group.** (Confirm which serials are on which bus in M
 | ROS 2 Jazzy (host, system Python 3.12) | ✅ installed (287 packages) |
 | ROS 1 Noetic + `kinova-ros` + `ros1_bridge`, `kinova_msgs` port | ✅ working (see repo README) |
 | Arm control helpers | ✅ `scripts/jaco`, `scripts/jog.py` |
+| RealSense | ✅ `ros-jazzy-librealsense2 2.58.4` + `ros-jazzy-realsense2-camera 4.58.4` (installed 2026-10-19) |
 | CUDA-capable PyTorch | ✅ in conda envs `qem-deep-learning` (py3.14, torch 2.13+cu126) and `blackwater` (py3.10, torch 2.13+cu130), `cuda True` |
 | conda | ✅ `/root/miniconda3` (base py3.14) |
 | colcon / rosdep | ✅ |
@@ -40,10 +84,10 @@ until we re-cable the USB2 group.** (Confirm which serials are on which bus in M
 
 | # | Item | Plan |
 |---|------|------|
-| 1 | **RealSense SDK** (`librealsense2`) | APT (`librealsense2-utils`, `librealsense2-dev`) or source; pinned version |
-| 2 | **realsense-ros** | APT `ros-jazzy-realsense2-camera` (candidate 4.58.4 / 5.1.8) |
+| 1 | ~~RealSense SDK~~ | ✅ installed 2026-10-19 (`ros-jazzy-librealsense2 2.58.4`) |
+| 2 | ~~realsense-ros~~ | ✅ installed 2026-10-19 (`ros-jazzy-realsense2-camera 4.58.4`) |
 | 3 | **VLA Python env** | New dedicated conda env `vla` (Py 3.10 or 3.11), torch matching CUDA, `transformers`, etc. |
-| 4 | **Camera tooling** | `v4l-utils`, `image-transport` plugins, `cv-bridge` |
+| 4 | **Camera tooling** | `v4l-utils` (optional diagnostics); `cv-bridge`/`image-transport` already present |
 | 5 | **Calibration tools** | camera intrinsics come from RealSense; extrinsics via `ros2 run tf2_ros` / hand-eye later |
 | 6 | **ZeroMQ or HTTP stack** | for policy_client ↔ vla_server |
 

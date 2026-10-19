@@ -47,16 +47,18 @@ These were verified directly, not assumed:
 | CPU/RAM | i9-12900K (24 threads), 31 GB RAM. |
 | Root disk | `/` = 893 GB, **only ~21 GB free (98% full)**. |
 | Extra storage | `/dev/sda` **2.7 TB, unformatted/unmounted** (candidate for model/dataset storage — needs your confirmation before touching). |
-| ROS 2 | Jazzy installed (287 pkgs). No RealSense ROS 2 packages yet; apt candidates exist (`ros-jazzy-realsense2-camera` 4.58.4 / 5.1.8). |
+| ROS 2 | Jazzy installed (287 pkgs) + **Realsense ROS 2 stack** (`ros-jazzy-realsense2-camera` 4.58.4, `librealsense2` 2.58.4). |
 | ROS 1 + bridge | Working pipeline exists (`scripts/jaco`, `kinova_msgs` port, `jog.py`). |
-| RealSense SDK | **Not installed** (no `librealsense`, no `pyrealsense2`). |
+| RealSense SDK | ✅ installed 2026-10-19 (APT, pinned); 6/7 cameras enumerate, `cam0` streams RGB-D. |
 | Internet | huggingface.co reachable (HTTP 200). |
 
-> ⚠️ **Current robot state:** the `kinova_arm_driver` process **crashed** (`SIGSEGV`, exit
-> -11) while idle during the 3-day gap — its log shows a `KinovaCommException: Could not get
-> Cartesian finger position (1015)` during a shutdown path. The arm is still on USB; the
-> stack needs a `scripts/jaco restart` before any robot work. This is a stability data point
-> for the risk register (see 08).
+> ⚠️ **Current robot state:** the arm driver crashed during the 3-day gap, and on restart
+> the Kinova **re-enumerated to USB devnum 26**. This is an **Incus container**, which passes
+> USB nodes through by fixed device number, so the container has no `/dev/bus/usb/001/026` —
+> the driver reports *"0 attached devices"*. **A host-side Incus device refresh (or a physical
+> replug) is required**; it cannot be fixed from inside the container (`mknod` is blocked,
+> sysfs `uevent` is read-only). Details and exact host commands:
+> [`validation/M0_environment.md`](validation/M0_environment.md), risk **R15**.
 
 ## 4. Headline recommendation (for approval)
 
@@ -81,3 +83,18 @@ Please review and answer in `08_risks_and_decisions.md` (D1–D8). The blocking 
 - **D8** RealSense install path (APT `realsense2-camera` vs source build).
 
 Once D1–D8 are settled, implementation starts at **M0** in `07_roadmap_and_validation.md`.
+
+## 6. Implementation progress (live)
+
+| Milestone | Status | Evidence |
+|-----------|--------|----------|
+| M0 — Environment + RealSense | 🟡 **partial** | RealSense installed; `cam0` (`2-2.2`, `935322072821`) streams color+depth ~27 Hz; `config/cameras.yaml` + `scripts/20_cameras.sh`. Arm **blocked** on Incus passthrough (R15). |
+| M1 — Calibration & TF | ⬜ not started | needs arm feedback for base↔camera extrinsics |
+| M2 — VLA inference server | ⬜ not started | pending D4 (storage) / M0 close |
+| M3 — Mapper + safety | ⬜ not started | |
+| M4 — Closed loop | ⬜ not started | |
+| M5 — Dataset | ⬜ not started | |
+| M6 — Fine-tune | ⬜ not started | |
+| M7 — Evaluation | ⬜ not started | |
+
+Step-by-step evidence lives in [`validation/`](validation/).

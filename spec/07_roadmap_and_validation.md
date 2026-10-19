@@ -34,6 +34,13 @@ a short findings note (which serial ↔ which USB bus).
 **Gate:** N cameras publish RGB-D at the configured rate continuously for **≥ 10 min** with
 no dropped frames/underruns; arm feedback topics present.
 
+**Status (2026-10-19):** 🟡 PARTIAL — RealSense stack installed; `cam0` (`2-2.2`,
+serial `935322072821`) streams color+depth at ~27 Hz with no frame warnings; helper
+`scripts/20_cameras.sh` and `config/cameras.yaml` added. **Arm blocked:** the Kinova
+re-enumerated to a USB device number that Incus does not pass into the container (R15);
+needs a host-side device refresh. The ≥10 min soak and the arm-feedback check remain.
+Full evidence: [`validation/M0_environment.md`](validation/M0_environment.md).
+
 ---
 
 ## M1 — Multi-camera calibration & TF

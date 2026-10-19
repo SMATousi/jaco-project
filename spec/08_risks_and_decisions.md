@@ -18,6 +18,8 @@
 | R12 | **Latency too high for smooth control** | M | Med | action chunking; measure p50/p95; reduce model/size if needed |
 | R13 | **Safety incident during hardware tests** | L | Critical | e-stop in hand, small caps, DRY_RUN first, one operator |
 | R14 | **Calibration drift / mounting changes** | M | Med | rigidly mount cameras; re-run M1 gate after any move |
+| R15 | **Incus USB passthrough is pinned to device numbers** — *observed*: the arm re-enumerated devnum 24→26 and the container had no node, so the driver saw "0 attached devices" | H | High | host must refresh the Incus `kinova` device (or replug the arm); durable fix is a device that follows the device (`usb`/`unix-hotplug`); documented in `spec/validation/M0_environment.md` |
+| R16 | **Incus video-node passthrough is pinned (`video0-41`)** — *observed*: camera `2-2.1` re-enumerated to `video42-47`, outside the passthrough | M | High | use `cam0`/`cam1` on `2-2.2`/`2-2.4`; stop nodes cleanly via `scripts/20_cameras.sh`; host should pass the UVC devices dynamically |
 
 ## 2. Decisions needed from you
 
@@ -31,6 +33,12 @@
 | **D6** | Teleop hardware | gamepad; SpaceMouse; keyboard | **gamepad** (tell me what you have) |  Recommendation approved (I have the Kinova joystick) | 
 | **D7** | Scope | zero-shot only; + fine-tuning | **include fine-tuning** (needed for real success) | Recommendation approved | 
 | **D8** | RealSense install | APT `realsense2-camera`; source build | **APT**, pinned | Recommendation approved | 
+
+**Implementation status (2026-10-19):** D1 (SmolVLA-first), D2 (pick-and-place), D3 (1–2 static
+views), D5 (velocity first), D6 (Kinova joystick), D7 (fine-tuning) and D8 (APT, pinned) are
+approved and in progress. **D4 (storage) is still open** — `/dev/sda` has not been touched;
+work continues within the ~22 GB free on `/`, and the 7 B model/downloads are deferred until
+D4 is resolved.
 
 ## 3. Open questions
 
